@@ -1,58 +1,69 @@
 <template>
-  <div class="container mx-auto p-4">
-    <h1 class="text-2xl font-bold mb-4">Search Properties</h1>
-    <form @submit.prevent="searchProperties" class="space-y-4 mb-6">
-      <div class="grid grid-cols-2 gap-4">
-        <input v-model="filters.name" placeholder="Name" class="border p-2 rounded w-full" />
-        <input v-model.number="filters.bedrooms" placeholder="Bedrooms" type="number" class="border p-2 rounded w-full" />
-        <input v-model.number="filters.bathrooms" placeholder="Bathrooms" type="number" class="border p-2 rounded w-full" />
-        <input v-model.number="filters.storeys" placeholder="Storeys" type="number" class="border p-2 rounded w-full" />
-        <input v-model.number="filters.garages" placeholder="Garages" type="number" class="border p-2 rounded w-full" />
-        <input v-model.number="filters.price_min" placeholder="Min Price" type="number" class="border p-2 rounded w-full" />
-        <input v-model.number="filters.price_max" placeholder="Max Price" type="number" class="border p-2 rounded w-full" />
-      </div>
-      <button type="submit" class="bg-blue-500 text-white py-2 px-4 rounded">Search</button>
-    </form>
+  <div class="container m-auto mt-4">
+    <el-form @submit.prevent="searchProperties" label-width="120px">
+      <el-row :gutter="20">
+        <el-col :span="12">
+          <el-form-item label="Name">
+            <el-input v-model="filters.name" placeholder="Enter name" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="Bedrooms">
+            <el-input-number v-model="filters.bedrooms" placeholder="Bedrooms" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="Bathrooms">
+            <el-input-number v-model="filters.bathrooms" placeholder="Bathrooms" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="Storeys">
+            <el-input-number v-model="filters.storeys" placeholder="Storeys" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="Garages">
+            <el-input-number v-model="filters.garages" placeholder="Garages" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="Price Range">
+            <el-slider
+                v-model="filters.price"
+                range
+                :min="100000"
+                :max="1000000"
+                show-tooltip
+            />
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <el-form-item>
+        <el-button type="primary" @click="searchProperties">Search</el-button>
+      </el-form-item>
+    </el-form>
 
-    <div v-if="loading" class="text-center">Loading...</div>
+    <el-table :data="results.data" style="width: 100%" v-if="results.data && results.data.length">
+      <el-table-column prop="name" label="Name" width="180" />
+      <el-table-column prop="bedrooms" label="Bedrooms" />
+      <el-table-column prop="bathrooms" label="Bathrooms" />
+      <el-table-column prop="storeys" label="Storeys" />
+      <el-table-column prop="garages" label="Garages" />
+      <el-table-column prop="price" label="Price" />
+    </el-table>
 
-    <table v-if="results.data && results.data.length" class="w-full border-collapse border border-gray-200">
-      <thead>
-      <tr class="bg-gray-100">
-        <th class="border p-2">Name</th>
-        <th class="border p-2">Bedrooms</th>
-        <th class="border p-2">Bathrooms</th>
-        <th class="border p-2">Storeys</th>
-        <th class="border p-2">Garages</th>
-        <th class="border p-2">Price</th>
-      </tr>
-      </thead>
-      <tbody>
-      <tr v-for="property in results.data" :key="property.id">
-        <td class="border p-2">{{ property.name }}</td>
-        <td class="border p-2">{{ property.bedrooms }}</td>
-        <td class="border p-2">{{ property.bathrooms }}</td>
-        <td class="border p-2">{{ property.storeys }}</td>
-        <td class="border p-2">{{ property.garages }}</td>
-        <td class="border p-2">${{ property.price }}</td>
-      </tr>
-      </tbody>
-    </table>
-
-    <div v-else class="text-center text-gray-500">No results found</div>
-
-    <div v-if="results.links" class="mt-4 flex justify-center space-x-2">
-      <button
-          v-for="(link, index) in results.links"
-          :key="index"
-          @click="goToPage(link.url)"
-          :class="[
-          'py-2 px-4 rounded',
-          link.active ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700',
-        ]"
-          v-html="link.label"
-      ></button>
-    </div>
+    <el-pagination
+        v-if="results.links"
+        @size-change="handleSizeChange"
+        @current-change="goToPage"
+        :current-page="results.current_page"
+        :page-sizes="[5]"
+        :page-size="results.per_page"
+        :total="results.total"
+        layout="total, sizes, prev, pager, next, jumper"
+        class="mt-4"
+    />
   </div>
 </template>
 
@@ -68,42 +79,37 @@ export default {
         bathrooms: null,
         storeys: null,
         garages: null,
-        price_min: null,
-        price_max: null,
+        price: [100000, 1000000],
       },
       results: {},
-      loading: false,
     };
   },
   methods: {
     async searchProperties() {
-      this.loading = true;
       try {
         const response = await axios.get('/api/properties', {
-          params: this.filters,
+          params: {
+            ...this.filters,
+            price_min: this.filters.price[0],
+            price_max: this.filters.price[1],
+          },
         });
         this.results = response.data;
       } catch (error) {
         console.error(error);
-      } finally {
-        this.loading = false;
       }
     },
-    async goToPage(url) {
-      if (!url) return;
-      this.loading = true;
+    async goToPage(page) {
       try {
-        const response = await axios.get(url);
+        const response = await axios.get(`/api/properties?page=${page}`);
         this.results = response.data;
       } catch (error) {
         console.error(error);
-      } finally {
-        this.loading = false;
       }
     },
   },
   mounted() {
-    this.searchProperties(); // Запрос данных при загрузке компонента
+    this.searchProperties();
   },
 };
 </script>
